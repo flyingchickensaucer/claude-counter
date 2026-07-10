@@ -1,0 +1,13 @@
+{
+  "name": "claude-counter",
+  "version": "1.0.0",
+  "description": "Slack bot that keeps a leaderboard of who says 'claude' the most",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "@slack/bolt": "^3.19.0",
+    "dotenv": "^16.4.5"
+  }
+}
