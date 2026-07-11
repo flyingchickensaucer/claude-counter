@@ -24,6 +24,7 @@ oauth_config:
       - app_mentions:read
       - channels:history
       - groups:history
+      - users:read
 settings:
   event_subscriptions:
     bot_events:

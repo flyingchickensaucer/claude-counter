@@ -46,22 +46,46 @@ function lastMonthName() {
   return d.toLocaleString('en-US', { month: 'long' });
 }
 
-function buildLeaderboard(counts) {
-  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+// display name lookups are cached for the life of the process
+const NAME_CACHE = {};
+async function displayName(client, userId) {
+  if (NAME_CACHE[userId]) return NAME_CACHE[userId];
+  try {
+    const { user } = await client.users.info({ user: userId });
+    const name = user.profile.display_name || user.real_name || user.name;
+    NAME_CACHE[userId] = name;
+    return name;
+  } catch {
+    return userId;
+  }
+}
+
+async function buildLeaderboard(client, counts) {
+  const entries = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
   if (entries.length === 0) {
     return 'Nobody has said claude yet. A workspace of unbelievable restraint.';
   }
-  const total = entries.reduce((sum, [, n]) => sum + n, 0);
-  const lines = entries.slice(0, 10).map(([userId, n], i) => {
-    const rank = i + 1;
-    const label = rank === 1 ? '*Chief Claude Officer*' : `${rank}.`;
-    return `${label} <@${userId}> — ${n}`;
+  const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  const names = await Promise.all(entries.map(([id]) => displayName(client, id)));
+  const max = entries[0][1];
+  const rows = entries.map(([, n], i) => {
+    const rank = String(i + 1).padStart(2);
+    const name = names[i].slice(0, 20).padEnd(20);
+    const count = String(n).padStart(7);
+    const bar = '█'.repeat(Math.max(1, Math.round((n / max) * 20)));
+    return `${rank}  ${name}${count}  ${bar}`;
   });
+  const header = ` #  ${'NAME'.padEnd(20)}${'CLAUDES'.padStart(7)}`;
   return [
     '*The Vibe Coding Hall of Slop*',
     `_${total} total invocations of our lord and savior. nobody here has read a line of code since last ${lastMonthName()}_`,
-    '',
-    ...lines,
+    '```',
+    header,
+    ...rows,
+    '```',
+    `Reigning Chief Claude Officer: *${names[0]}*`,
   ].join('\n');
 }
 
@@ -97,14 +121,17 @@ app.message(CLAUDE_RE, async ({ message, say }) => {
 });
 
 // post the leaderboard when someone says "claudeboard"
-app.message(/\bclaudeboard\b/i, async ({ say }) => {
-  await say(buildLeaderboard(loadCounts()));
+app.message(/\bclaudeboard\b/i, async ({ say, client }) => {
+  await say(await buildLeaderboard(client, loadCounts()));
 });
 
 // function 2: the leaderboard
-app.command('/claude-counter-board', async ({ ack, respond }) => {
+app.command('/claude-counter-board', async ({ ack, respond, client }) => {
   await ack();
-  await respond({ response_type: 'in_channel', text: buildLeaderboard(loadCounts()) });
+  await respond({
+    response_type: 'in_channel',
+    text: await buildLeaderboard(client, loadCounts()),
+  });
 });
 
 // function 3: your own count and rank, shown only to you
