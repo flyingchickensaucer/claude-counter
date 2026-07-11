@@ -46,15 +46,14 @@ function lastMonthName() {
   return d.toLocaleString('en-US', { month: 'long' });
 }
 
-// display name lookups are cached for the life of the process
+// username lookups are cached for the life of the process
 const NAME_CACHE = {};
-async function displayName(client, userId) {
+async function username(client, userId) {
   if (NAME_CACHE[userId]) return NAME_CACHE[userId];
   try {
     const { user } = await client.users.info({ user: userId });
-    const name = user.profile.display_name || user.real_name || user.name;
-    NAME_CACHE[userId] = name;
-    return name;
+    NAME_CACHE[userId] = user.name;
+    return user.name;
   } catch {
     return userId;
   }
@@ -68,16 +67,14 @@ async function buildLeaderboard(client, counts) {
     return 'Nobody has said claude yet. A workspace of unbelievable restraint.';
   }
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
-  const names = await Promise.all(entries.map(([id]) => displayName(client, id)));
-  const max = entries[0][1];
+  const names = await Promise.all(entries.map(([id]) => username(client, id)));
   const rows = entries.map(([, n], i) => {
     const rank = String(i + 1).padStart(2);
-    const name = names[i].slice(0, 20).padEnd(20);
+    const name = names[i].slice(0, 24).padEnd(24);
     const count = String(n).padStart(7);
-    const bar = '█'.repeat(Math.max(1, Math.round((n / max) * 20)));
-    return `${rank}  ${name}${count}  ${bar}`;
+    return `${rank}  ${name}${count}`;
   });
-  const header = ` #  ${'NAME'.padEnd(20)}${'CLAUDES'.padStart(7)}`;
+  const header = ` #  ${'USERNAME'.padEnd(24)}${'CLAUDES'.padStart(7)}`;
   return [
     '*The Vibe Coding Hall of Slop*',
     `_${total} total invocations of our lord and savior. nobody here has read a line of code since last ${lastMonthName()}_`,
