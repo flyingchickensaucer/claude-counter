@@ -97,7 +97,10 @@ app.message(CLAUDE_RE, async ({ message, say }) => {
   // skip bots, edits, joins, and other message subtypes
   if (message.subtype || message.bot_id) return;
 
-  const mentions = (message.text.match(CLAUDE_RE) || []).length;
+  // slack wraps links, mentions, and channels in <...>, strip them so
+  // urls containing claude don't score points
+  const spoken = message.text.replace(/<[^>]*>/g, '');
+  const mentions = (spoken.match(CLAUDE_RE) || []).length;
   if (mentions === 0) return;
 
   const counts = loadCounts();
